@@ -2,6 +2,13 @@
 import React, { useState } from 'react';
 import { Send, Zap, Box, MessageSquare, Loader2, Terminal, Image as ImageIcon, Key } from 'lucide-react';
 
+/* ============================================================
+   BACKEND CONFIG (IMPORTANT FOR VERCEL DEPLOYMENT)
+   ============================================================ */
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 /**
  * AI Integration Course Demo
  * Updated to include Level 4: Gemini Image Generation
@@ -18,7 +25,9 @@ export default function AIDemoPage() {
           <div className="bg-indigo-600 text-white p-1.5 rounded-lg font-bold text-sm">AI</div>
           <h1 className="font-bold text-xl tracking-tight">Integration</h1>
         </div>
-        <div className="text-sm text-slate-500 font-medium">Next.js + FastAPI + OpenAI&Gemini</div>
+        <div className="text-sm text-slate-500 font-medium">
+          Backend: {BACKEND_URL}
+        </div>
       </header>
 
       <main className="flex-1 max-w-6xl w-full mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -55,40 +64,35 @@ export default function AIDemoPage() {
               {activeLevel === 1 && (
                 <>
                   <p><strong>Mechanism:</strong> Standard HTTP Blocking Request.</p>
-                  <p>Client waits for the complete JSON response <code>{`{ "response": "..." }`}</code>. High latency, simple implementation.</p>
+                  <p>Client waits for full JSON (<code>{"{ response: '...' }"}</code>).</p>
                 </>
               )}
 
               {activeLevel === 2 && (
                 <>
                   <p><strong>Mechanism:</strong> Server-Sent Events (SSE).</p>
-                  <p>Backend uses Python <code>yield</code> to push data chunks. Frontend uses <code>TextDecoder</code> to read the stream. Low latency feel.</p>
+                  <p>Backend streams tokens ➜ Frontend decodes chunks in real-time.</p>
                 </>
               )}
 
               {activeLevel === 3 && (
                 <>
-                  <p><strong>Mechanism:</strong> Function Calling (Tools).</p>
-                  <p>The AI returns structured JSON arguments instead of text, allowing it to control the <code>State</code> of the application directly.</p>
+                  <p><strong>Mechanism:</strong> Function Calling & UI State Updates.</p>
+                  <p>AI returns structured JSON to control UI components.</p>
                 </>
               )}
 
               {activeLevel === 4 && (
                 <>
-                  <p><strong>Mechanism:</strong> BYOK (Bring Your Own Key) & Multimodal API.</p>
-                  <p>
-                    <strong>Flow:</strong> Frontend sends Prompt + User's API Key <span className="text-indigo-400">→</span> Backend configures <code>genai</code> dynamically <span className="text-indigo-400">→</span> Generates Image <span className="text-indigo-400">→</span> Returns Base64 string.
-                  </p>
-                  <p className="text-xs bg-white/50 p-2 rounded text-indigo-600">
-                    <em>Note:</em> We do not store the API Key on the server. It is used for a single request scope.
-                  </p>
+                  <p><strong>Mechanism:</strong> BYOK Multimodal (User supplies Gemini key).</p>
+                  <p>Key used for one request only. No storage.</p>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Main Demo Area */}
+        {/* Main Demo Section */}
         <div className="lg:col-span-9">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -134,7 +138,10 @@ function NavButton({ level, current, set, icon, title, desc }: any) {
   );
 }
 
-// --- LEVEL 1: Basic ---
+/* ============================================================
+   LEVEL 1 — BASIC COMPLETION
+   ============================================================ */
+
 function Level1Basic() {
   const [input, setInput] = useState('');
   const [response, setResponse] = useState('');
@@ -143,63 +150,53 @@ function Level1Basic() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input) return;
+
     setLoading(true);
     setResponse('');
 
     try {
-      const res = await fetch('http://localhost:8000/api/level1/basic', {
+      const res = await fetch(`${BACKEND_URL}/api/level1/basic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
       });
+
       const data = await res.json();
       setResponse(data.response);
-    } catch (err) {
+    } catch {
       setResponse("Error connecting to backend.");
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center mb-4">
-        <h3 className="text-2xl font-bold text-slate-800">Standard Request</h3>
-        <p className="text-slate-500">Ask a question and wait for the complete answer.</p>
-      </div>
+      <h3 className="text-2xl font-bold">Standard Request</h3>
 
       <form onSubmit={handleSubmit} className="flex gap-3">
         <input 
-          className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          className="flex-1 border px-4 py-3 rounded-lg"
           placeholder="E.g. Explain Quantum Physics"
           value={input}
           onChange={e => setInput(e.target.value)}
         />
-        <button 
-          disabled={loading}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
+        <button disabled={loading} className="btn-primary">
           Send <Send size={18} />
         </button>
       </form>
 
-      <div className="bg-slate-50 rounded-xl p-6 min-h-[200px] border border-slate-200">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
-            <Loader2 className="animate-spin" />
-            <span>Waiting for full response...</span>
-          </div>
-        ) : response ? (
-          <p className="text-slate-700 leading-relaxed animate-in fade-in duration-500">{response}</p>
-        ) : (
-          <p className="text-slate-400 italic text-center mt-12">AI response will appear here.</p>
-        )}
+      <div className="output-box">
+        {loading ? "Loading..." : response}
       </div>
     </div>
   );
 }
 
-// --- LEVEL 2: Streaming ---
+/* ============================================================
+   LEVEL 2 — STREAMING SSE
+   ============================================================ */
+
 function Level2Stream() {
   const [input, setInput] = useState('');
   const [streamedText, setStreamedText] = useState('');
@@ -208,80 +205,73 @@ function Level2Stream() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input) return;
+
     setStreaming(true);
     setStreamedText('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/level2/stream', {
+      const response = await fetch(`${BACKEND_URL}/api/level2/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
       });
 
       if (!response.body) return;
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
+
         lines.forEach(line => {
-          if (line.startsWith('data: ')) {
-            const content = line.replace('data: ', '');
-            const cleanContent = content.replace(/\\n/g, '\n'); 
-            if (cleanContent !== '[DONE]') {
-              setStreamedText(prev => prev + cleanContent);
+          if (line.startsWith("data: ")) {
+            const content = line.replace("data: ", "");
+            if (content !== "[DONE]") {
+              setStreamedText(prev => prev + content);
             }
           }
         });
       }
+
     } catch (err) {
       console.error(err);
-    } finally {
-      setStreaming(false);
     }
+
+    setStreaming(false);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center mb-4">
-        <h3 className="text-2xl font-bold text-slate-800">Streaming Response</h3>
-        <p className="text-slate-500">See the answer type out in real-time.</p>
-      </div>
+      <h3 className="text-2xl font-bold">Streaming</h3>
 
       <form onSubmit={handleSubmit} className="flex gap-3">
         <input 
-          className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-          placeholder="E.g. Write a poem about coding"
+          className="flex-1 border px-4 py-3 rounded-lg"
+          placeholder="Write a poem about coding"
           value={input}
           onChange={e => setInput(e.target.value)}
         />
-        <button 
-          disabled={streaming}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          Stream <Zap size={18} />
+        <button disabled={streaming} className="btn-primary">
+          Stream <Zap size={18}/>
         </button>
       </form>
 
-      <div className="bg-slate-50 rounded-xl p-6 min-h-[200px] border border-slate-200 relative">
-        {streamedText ? (
-          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-            {streamedText}
-            {streaming && <span className="inline-block w-2 h-5 bg-indigo-500 ml-1 animate-pulse align-middle"/>}
-          </p>
-        ) : (
-          <p className="text-slate-400 italic text-center mt-12">Response streams here...</p>
-        )}
+      <div className="output-box whitespace-pre-wrap">
+        {streamedText || "Stream output will appear here..."}
       </div>
     </div>
   );
 }
 
-// --- LEVEL 3: Generative UI ---
+/* ============================================================
+   LEVEL 3 — GENERATIVE UI (AI Controls Dashboard)
+   ============================================================ */
+
 function Level3GenUI() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -302,70 +292,56 @@ function Level3GenUI() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/level3/ui', {
+      const res = await fetch(`${BACKEND_URL}/api/level3/ui`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
       });
+
       const data = await res.json();
 
       if (data.type === 'ui_update') {
         setDashboardState(data.data);
       }
+
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center mb-4">
-        <h3 className="text-2xl font-bold text-slate-800">Generative UI</h3>
-        <p className="text-slate-500">Tell the AI to change the interface.</p>
+      <h3 className="text-2xl font-bold">Generative UI</h3>
+
+      <div className="flex gap-2">
+        <input 
+          className="flex-1 border px-4 py-3 rounded-lg"
+          placeholder="Change to dark mode..."
+          value={input}
+          onChange={e => setInput(e.target.value)}
+        />
+        <button className="btn-primary" onClick={handleCommand}>
+          Execute
+        </button>
       </div>
 
-      {/* Controls - Above the Output */}
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-2">
-          <input 
-            className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="E.g. Turn it to dark mode or Set status to 'Critical Error'"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCommand()}
-          />
-          <button 
-            onClick={handleCommand}
-            disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50"
-          >
-            Execute
-          </button>
-        </div>
-        <div className="flex gap-2 justify-center text-xs text-slate-500">
-          <span>Try:</span>
-          <button onClick={() => setInput("Change to Dark Mode with status 'Night Watch'")} className="underline hover:text-indigo-600">Dark Mode</button>
-          <button onClick={() => setInput("Make it Red and warn about overheating")} className="underline hover:text-indigo-600">Red Alert</button>
-        </div>
-      </div>
-
-      {/* The AI Controlled Card - Below the Input */}
-      <div className={`rounded-2xl p-8 shadow-lg transition-all duration-500 border-2 flex flex-col items-center justify-center min-h-[240px] gap-4 ${themeStyles[dashboardState.theme] || themeStyles.light}`}>
-        <div className="text-4xl font-black tracking-tighter">
-          {dashboardState.theme.toUpperCase()} MODE
-        </div>
-        <div className="text-lg font-medium opacity-80">
+      <div className={`rounded-2xl p-8 border-2 transition-all ${themeStyles[dashboardState.theme]}`}>
+        <div className="text-4xl font-black">{dashboardState.theme.toUpperCase()} MODE</div>
+        <div className="text-lg opacity-80 mt-2">
           Status: {dashboardState.status_message}
         </div>
-        {loading && <Loader2 className="animate-spin opacity-50" />}
+        {loading && <Loader2 className="animate-spin mt-4"/>}
       </div>
     </div>
   );
 }
 
-// --- LEVEL 4: Gemini Image Gen ---
+/* ============================================================
+   LEVEL 4 — GEMINI IMAGE GEN
+   ============================================================ */
+
 function Level4ImageGen() {
   const [apiKey, setApiKey] = useState('');
   const [input, setInput] = useState('');
@@ -375,18 +351,20 @@ function Level4ImageGen() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input) return;
+
     if (!apiKey) {
-      setError("Please enter your Gemini API Key first.");
+      setError("Please enter your Gemini API key.");
       return;
     }
-    
+
+    if (!input) return;
+
     setLoading(true);
-    setImageSrc(null);
     setError('');
+    setImageSrc(null);
 
     try {
-      const res = await fetch('http://localhost:8000/api/level4/image', {
+      const res = await fetch(`${BACKEND_URL}/api/level4/image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -394,91 +372,73 @@ function Level4ImageGen() {
           user_api_key: apiKey 
         }),
       });
-      
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.detail || "Image generation failed");
-      }
 
-      if (data.status === 'success' && data.image_base64) {
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "Image failed");
+
+      if (data.status === "success") {
         setImageSrc(`data:image/jpeg;base64,${data.image_base64}`);
       } else {
-        setError("API returned success but no image data found.");
+        setError("No image returned.");
       }
-      
+
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center mb-4">
-        <h3 className="text-2xl font-bold text-slate-800">Gemini 2.5 Flash Image (Nano Banana)</h3>
-        <p className="text-slate-500">Provide your key and generate images instantly.</p>
+      <h3 className="text-2xl font-bold">Gemini Image Generation</h3>
+
+      {/* API Key */}
+      <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
+        <Key className="text-amber-600" size={20} />
+        <input 
+          type="password"
+          className="flex-1 bg-transparent border-none"
+          placeholder="Paste your Gemini API key"
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+        />
       </div>
 
-      {/* Input Section */}
-      <div className="space-y-4">
-        {/* API Key Input */}
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
-          <Key className="text-amber-600" size={20} />
-          <input 
-            type="password"
-            className="flex-1 bg-transparent border-none focus:outline-none text-amber-900 placeholder-amber-400"
-            placeholder="Paste your Gemini API Key here (starts with AIza...)"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-          />
-        </div>
+      {/* Prompt */}
+      <form onSubmit={handleGenerate} className="flex gap-3">
+        <input 
+          className="flex-1 border px-4 py-3 rounded-lg"
+          placeholder="A futuristic banana city"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+        />
+        <button disabled={loading} className="btn-primary">
+          Generate <ImageIcon size={18} />
+        </button>
+      </form>
 
-        {/* Prompt Input */}
-        <form onSubmit={handleGenerate} className="flex gap-3">
-          <input 
-            className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            placeholder="E.g. A futuristic banana city in neon lights"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-          />
-          <button 
-            disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            Generate <ImageIcon size={18} />
-          </button>
-        </form>
-      </div>
+      {/* Error */}
+      {error && <div className="error-box">{error}</div>}
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center">
-          {error}
-        </div>
-      )}
-
-      {/* Output Area - Below Input */}
-      <div className="bg-slate-50 rounded-xl p-6 min-h-[350px] border border-slate-200 flex items-center justify-center">
+      {/* Output */}
+      <div className="bg-slate-50 border p-6 rounded-xl min-h-[350px] flex items-center justify-center">
         {loading ? (
-          <div className="flex flex-col items-center gap-3 text-slate-400">
-            <Loader2 className="animate-spin w-8 h-8" />
-            <span>Generating image... (this takes ~5s)</span>
+          <div className="text-slate-400">
+            <Loader2 className="animate-spin mx-auto"/>
+            Generating image…
           </div>
         ) : imageSrc ? (
-          <img 
-            src={imageSrc} 
-            alt="Generated from Gemini" 
-            className="rounded-lg shadow-md max-h-[400px] w-full object-contain animate-in zoom-in duration-500" 
-          />
+          <img src={imageSrc} className="rounded-lg shadow-md max-h-[400px]"/>
         ) : (
-          <div className="text-center text-slate-400">
-            <ImageIcon className="mx-auto mb-2 opacity-50" size={48} />
-            <p>Image will appear here</p>
+          <div className="text-slate-400 text-center">
+            <ImageIcon size={40} className="mx-auto opacity-40"/>
+            Image will appear here
           </div>
         )}
       </div>
     </div>
   );
 }
+
